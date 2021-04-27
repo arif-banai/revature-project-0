@@ -1,6 +1,6 @@
 package net.revature.arifbanai
 
-import scala.util.{Failure, Success, Try, Using}
+import scala.util.{Failure, Success, Try}
 
 object MainLoopSQL {
 
@@ -8,17 +8,19 @@ object MainLoopSQL {
 
     var passwordFromDB = ""
 
-    Using.Manager { use =>
-      val validateLoginStatement = use(DataSource.getConnection
-        .prepareStatement("SELECT userpass FROM users WHERE username = ?;"))
-      validateLoginStatement.setString(1, username)
-      val resultSet = use(validateLoginStatement.executeQuery())
+    val conn = DataSource.getConnection
+    val validateLoginStatement = conn
+      .prepareStatement("SELECT userpass FROM users WHERE username = ?;")
+    validateLoginStatement.setString(1, username)
+    val resultSet = validateLoginStatement.executeQuery()
 
-      // Should return exactly one password given some username, as usernames are unique
-      if (resultSet.next()) {
-        passwordFromDB = resultSet.getString("userpass")
-      }
+    // Should return exactly one password given some username, as usernames are unique
+    if (resultSet.next()) {
+      passwordFromDB = resultSet.getString("userpass")
     }
+
+    validateLoginStatement.close()
+    conn.close()
 
     if (password.equals(passwordFromDB)) {
       true
@@ -31,25 +33,27 @@ object MainLoopSQL {
 
     var userCreated = false
 
-    Using.Manager { use =>
-      val createUserStatement = use(DataSource.getConnection
-        .prepareStatement("INSERT INTO users(username, userpass) VALUES(?, ?);"))
-      createUserStatement.setString(1, username)
-      createUserStatement.setString(2, password)
+    val conn = DataSource.getConnection
+    val createUserStatement = conn.prepareStatement("INSERT INTO users(username, userpass) VALUES(?, ?);")
 
-      val updateResult = Try(createUserStatement.executeUpdate())
+    createUserStatement.setString(1, username)
+    createUserStatement.setString(2, password)
 
-      updateResult match {
-        case Success(value) => {
-          userCreated = true
-        }
-        case Failure(exception) => {
-          userCreated = false
-          println("Exception occurred during user creation")
-          exception.printStackTrace()
-        }
+    val updateResult = Try(createUserStatement.executeUpdate())
+
+    updateResult match {
+      case Success(value) => {
+        userCreated = true
+      }
+      case Failure(exception) => {
+        userCreated = false
+        println("Exception occurred during user creation")
+        exception.printStackTrace()
       }
     }
+
+    createUserStatement.close()
+    conn.close()
 
     userCreated = createBankAccount(username)
 
@@ -60,27 +64,28 @@ object MainLoopSQL {
 
     var accountCreated = false
 
-    Using.Manager { use =>
-      val createAccountStatement = use(DataSource.getConnection
-        .prepareStatement("INSERT INTO accounts(userid, balance) VALUES((SELECT id FROM users WHERE username = ?), DEFAULT);"))
-      createAccountStatement.setString(1, username)
+    val conn = DataSource.getConnection
+    val createAccountStatement = conn
+      .prepareStatement("INSERT INTO accounts(userid, balance) VALUES((SELECT id FROM users WHERE username = ?), DEFAULT);")
+    createAccountStatement.setString(1, username)
 
-      val updateResult = Try(createAccountStatement.executeUpdate())
+    val updateResult = Try(createAccountStatement.executeUpdate())
 
-      updateResult match {
-        case Success(value) => {
-          accountCreated = true
-        }
-        case Failure(exception) => {
-          accountCreated = false
-          println("Exception occurred during account creation")
-          exception.printStackTrace()
-        }
+    updateResult match {
+      case Success(value) => {
+        accountCreated = true
+      }
+      case Failure(exception) => {
+        accountCreated = false
+        println("Exception occurred during account creation")
+        exception.printStackTrace()
       }
     }
 
+    createAccountStatement.close()
+    conn.close()
+
     accountCreated
   }
-
 
 }

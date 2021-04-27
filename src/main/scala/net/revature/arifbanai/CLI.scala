@@ -7,6 +7,7 @@ class CLI {
 
   // regex pattern for extracting command and arguments from input
   val commandPatternRegex: Regex = "(\\w+)\\s*(.*)".r
+  val transferCommandPatternRegex: Regex = "(\\w+)\\s*(\\w+)\\s*(.*)".r
 
   def startCommandLoop(): Unit = {
 
@@ -60,7 +61,9 @@ class CLI {
         }
 
         case commandPatternRegex(cmd, arg) if cmd == "import" => {
-          // Import data from csv file
+          if(CSVReader.importFromCSV(arg)) {
+            println(s"Users imported from $arg")
+          }
         }
 
         case commandPatternRegex(cmd, arg) if cmd == "exit" => {
@@ -97,13 +100,19 @@ class CLI {
         }
 
         case commandPatternRegex(cmd, arg) if cmd == "deposit" => {
-          //deposit some money
+          if(UserSQL.deposit(userKey, arg.toLong)) {
+            println(s"You deposited $$$arg to your account")
+          }
         }
         case commandPatternRegex(cmd, arg) if cmd == "withdraw" => {
-          //withdraw some money
+          if(UserSQL.withdraw(userKey, arg.toLong)) {
+            println(s"You withdrew $$$arg from your account")
+          }
         }
-        case commandPatternRegex(cmd, arg) if cmd == "transfer" => {
-          //transfer some money to someone else
+        case transferCommandPatternRegex(cmd, targetUser, amount) if cmd == "transfer" => {
+          if(UserSQL.transfer(userKey, targetUser, amount.toLong)) {
+            println(s"You transferred $$${amount.toLong} to $targetUser")
+          }
         }
         case commandPatternRegex(cmd, arg) if cmd == "logout" => {
           loggedIn = false
@@ -111,13 +120,18 @@ class CLI {
         }
         case commandPatternRegex(cmd, arg) if cmd == "close" => {
           println("Are you sure you want to close your account?")
-          println("Y = yes, N = no")
+          println("Y = yes, Anything else = no")
           input = StdIn.readLine()
 
           input match {
             case commandPatternRegex(cmd, arg) if cmd.equalsIgnoreCase("y") => {
-              // Delete the users account
+              if(UserSQL.deleteAccount(userKey)) {
+                println("Your account has been closed, thanks for using Smeefy Banking Services!")
+                loggedIn = false
+              }
             }
+            case default =>
+              println("Not closing account.")
           }
         }
 
@@ -126,6 +140,8 @@ class CLI {
         }
       }
     }
+
+    println("Returning to main menu \n")
   }
 
   def printWelcome(): Unit = {
